@@ -1,39 +1,90 @@
 const { Telegraf } = require("telegraf");
-const { message } = require("telegraf/filters");
 require("dotenv").config();
 
 const SMSPool = require("./smspool");
 
 const bot = new Telegraf(process.env.TELEGRAM_TOKEN);
+const smspool = new SMSPool(process.env.SMSPOOL_TOKEN);
 
 console.log("BOT Online");
 
 // ! test bot here
-bot.command("bom", (ctx) => {
-    ctx.reply("Nhập URL cần bơm");
-    bot.on("text", (ctx) => {
-        console.log(ctx);
-        ctx.reply(`you sent ${ctx.text}`);
-    });
+bot.command("eval", (ctx) => {
+    // Extract the argument after /test
+    const input = ctx.message.text.split(" ").slice(1).join(" "); // Everything after '/test'
+    eval(input);
 });
 
+bot.command("test", (ctx) => {
+    const input = ctx.message.text.split(" ").slice(1).join(" "); // Everything after '/test'
+    ctx.replyWithMarkdownV2("test code `12341234`");
+});
 bot.command("sms", async (ctx) => {
-    const smspool = new SMSPool(process.env.SMSPOOL_TOKEN);
-    const [phonenumber, orderID] = await smspool.orderSMS({
-        country: "US",
-        service: "1227",
-    });
-    const sentMsg = await ctx.reply(
-        `- order_id: ${orderID}\n- phone_number: +1 ${phonenumber}`
+    await ctx.telegram.sendChatAction(ctx.chat.id, "typing");
+    console.log(
+        `LOG | COMMAND | SMS from @${ctx.update.message.from.username}`
     );
+    try {
+        // Order SMS
+        const [phonenumber, orderID] = await smspool.orderSMS({
+            country: "US",
+            service: "1227",
+        });
 
-    const smsCode = await smspool.waitForSmsCode(orderID);
-    ctx.editMessageText(
-        ctx.chat.id,
-        sentMsg.message_id,
-        null,
-        `Code ${smsCode}`
+        // Simulate processing delay
+        await new Promise((resolve) => setTimeout(resolve, 2500)); // 2.5-second delay
+        // Send a message with order details
+        const sentMsg = await ctx.reply(
+            `@${ctx.update.message.from.username}\nOrder ID: \`${orderID}\`\nPhone Number: +1 \`${phonenumber}\`\nCode: ...⟳...`,
+            { parse_mode: "Markdown" }
+        );
+
+        // Wait for the SMS code
+        const smsCode = await smspool.waitForSmsCode(orderID);
+
+        // Edit the previous message to include the received SMS code
+        await ctx.telegram.editMessageText(
+            ctx.chat.id, // Chat ID
+            sentMsg.message_id, // Message ID to edit
+            null, // Inline message ID (not used here)
+            `@${ctx.update.message.from.username}\nOrder ID: \`${orderID}\`\nPhone Number: +1 \`${phonenumber}\`\nCode: \`${smsCode}\``,
+            { parse_mode: "Markdown" }
+        );
+    } catch (error) {
+        ctx.reply(
+            "Error: " +
+                error.message +
+                "\nPlease use `/code orderID` to retrieve code",
+            { parse_mode: "Markdown" }
+        );
+    }
+});
+
+bot.command("code", async (ctx) => {
+    await ctx.telegram.sendChatAction(ctx.chat.id, "typing");
+    const orderID = ctx.text.split(" ").slice(1);
+    console.log(
+        `LOG | COMMAND | CODE from @${ctx.update.message.from.username}`
     );
+    try {
+        // Simulate processing delay
+        const sentMsg = await ctx.reply(
+            `@${ctx.update.message.from.username}\nRetrieving Code for Order ID: \`${orderID}\`\nCode: ...⟳...`,
+            { parse_mode: "Markdown" }
+        );
+        const smsCode = await smspool.waitForSmsCode(orderID);
+        await new Promise((resolve) => setTimeout(resolve, 2500)); // 2.5-second delay
+        // Edit the previous message to include the received SMS code
+        await ctx.telegram.editMessageText(
+            ctx.chat.id, // Chat ID
+            sentMsg.message_id, // Message ID to edit
+            null, // Inline message ID (not used here)
+            `@${ctx.update.message.from.username}\nRetrieving Code for Order ID: \`${orderID}\`\nCode: \`${smsCode}\``,
+            { parse_mode: "Markdown" }
+        );
+    } catch (error) {
+        ctx.reply("Error: " + error.message);
+    }
 });
 bot.launch();
 
