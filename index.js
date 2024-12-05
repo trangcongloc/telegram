@@ -23,10 +23,17 @@ bot.command("sms", async (ctx) => {
         country: "US",
         service: "1227",
     });
-    ctx.reply(`- order_id: ${orderID}\n- phone_number: +1 ${phonenumber}`);
+    const sentMsg = await ctx.reply(
+        `- order_id: ${orderID}\n- phone_number: +1 ${phonenumber}`
+    );
 
     const smsCode = await smspool.waitForSmsCode(orderID);
-    ctx.reply(`Code: ${smsCode}`);
+    ctx.editMessageText(
+        ctx.chat.id,
+        sentMsg.message_id,
+        null,
+        `Code ${smsCode}`
+    );
 });
 bot.launch();
 
