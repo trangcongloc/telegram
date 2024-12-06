@@ -94,7 +94,7 @@ class SMSPool {
      * @param {number} pollInterval - Interval in milliseconds to poll the status (e.g., 5000 for 5 seconds).
      * @returns {Promise<string>} The SMS code if received, or an error message if not.
      */
-    async waitForSmsCode(orderId, maxRetries = 10, pollInterval = 10000) {
+    async waitForSmsCode(orderId, maxRetries = 5, pollInterval = 10000) {
         let retries = 0;
 
         while (retries < maxRetries) {
